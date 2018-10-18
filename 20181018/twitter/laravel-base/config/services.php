@@ -40,4 +40,17 @@ return [
         ],
     ],
 
+    'twitter' => [
+        'consumer' => [
+            'key' => env('TWITTER_CONSUMER_KEY'),
+            'secret' => env('TWITTER_CONSUMER_SECRET'),
+        ],
+        'access' => [
+            'token' => env('TWITTER_ACCESS_TOKEN'),
+            'secret' => env('TWITTER_ACCESS_TOKEN_SECRET'),
+        ],
+        'user' => env('TWITTER_USER_ID'),
+        'list' => env('TWITTER_LIST_ID'),
+    ],
+
 ];
