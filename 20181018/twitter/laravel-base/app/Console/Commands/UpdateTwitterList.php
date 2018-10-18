@@ -205,7 +205,8 @@ class UpdateTwitterList extends Command
 
     private function getStatusesFromTimeline()
     {
-        $finished = false;
+        $this->info('Going through the timeline...');
+
         $raw_statuses = [];
         $conditions = [
             'user_id' => $this->user_id,
@@ -215,8 +216,7 @@ class UpdateTwitterList extends Command
         ];
         $max_id = 0;
 
-        echo "Going through the timeline...\n";
-
+        $finished = false;
         while (!$finished) {
             $data = $this->connection->get(
                 "statuses/user_timeline",
@@ -233,8 +233,9 @@ class UpdateTwitterList extends Command
                     $finished = true;
                 }
             }
+
             $tweet_count = count($raw_statuses);
-            echo "{$tweet_count} tweets\n";
+            $this->info("{$tweet_count} tweets");
 
             if (isset($conditions['max_id'])) {
                 if ($conditions['max_id'] == $max_id) {
