@@ -3,6 +3,7 @@
 1. Run:
 
 ```bash
+composer install
 cp .env.example .env
 ```
 
