@@ -23,6 +23,7 @@ class UpdateTwitterList extends Command
     protected $user_id;
     protected $connection;
     protected $list_id;
+    protected $cutoff_date;
 
     /**
      * Create a new command instance.
@@ -36,6 +37,7 @@ class UpdateTwitterList extends Command
         $this->user_id = config('services.twitter.user');
         $this->connection = app('Twitter');
         $this->list_id = config('services.twitter.list');
+        $this->cutoff_date = strtotime("1 month ago");
     }
 
     /**
@@ -99,7 +101,7 @@ class UpdateTwitterList extends Command
 
             // Loop through and grab the oldest ID
             foreach ($data as $favorite) {
-                if (strtotime($favorite->created_at) >= $cutoff_date) {
+                if (strtotime($favorite->created_at) >= $this->cutoff_date) {
                     $favorites[] = $favorite;
                     $max_id = $favorite->id;
                 } else {
@@ -211,7 +213,6 @@ class UpdateTwitterList extends Command
             'exclude_replies' => false,
             'count' => 3200
         ];
-        $cutoff_date = strtotime("1 month ago");
         $max_id = 0;
 
         echo "Going through the timeline...\n";
@@ -224,7 +225,7 @@ class UpdateTwitterList extends Command
 
             // Loop through and grab the oldest ID
             foreach ($data as $status) {
-                if (strtotime($status->created_at) >= $cutoff_date) {
+                if (strtotime($status->created_at) >= $this->cutoff_date) {
                     $raw_statuses[] = $status;
                     $max_id = $status->id;
                 } else {
