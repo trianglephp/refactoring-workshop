@@ -39,10 +39,8 @@ class UpdateTwitterList extends Command
     {
         $user_id = config('services.twitter.user');
         $connection = app('Twitter');
+        $list_id = config('services.twitter.list');
 
-        // Get our list
-        $lists = $connection->get("lists/list", ["user_id" => $user_id]);
-        $list = $lists[0]; // We only have one list, 'cycle'
         $new_users = [];
         $finished = false;
         $raw_statuses = [];
@@ -161,7 +159,7 @@ class UpdateTwitterList extends Command
         echo "Grabbing users currently on our cycle list...\n";
         $members = $connection->get(
             "lists/members",
-            ['list_id' => $list->id, 'count' => 5000]
+            ['list_id' => $list_id, 'count' => 5000]
         );
         $users = $members->users;
         $current_users = [];
@@ -188,7 +186,7 @@ class UpdateTwitterList extends Command
                 $user_slice = array_slice($users_to_remove, $offset, 100);
                 $response = $connection->post(
                     "lists/members/destroy_all",
-                    ['list_id' => $list->id, 'user_id' => implode(",", $user_slice)]
+                    ['list_id' => $list_id, 'user_id' => implode(",", $user_slice)]
                 );
 
                 if ($connection->getLastHttpCode() !== 200) {
@@ -217,7 +215,7 @@ class UpdateTwitterList extends Command
                 $user_slice = array_slice($users_to_add, $offset, 100);
                 $response = $connection->post(
                     "lists/members/create_all",
-                    ['list_id' => $list->id, 'user_id' => implode(",", $user_slice)]
+                    ['list_id' => $list_id, 'user_id' => implode(",", $user_slice)]
                 );
 
                 if ($connection->getLastHttpCode() !== 200) {
