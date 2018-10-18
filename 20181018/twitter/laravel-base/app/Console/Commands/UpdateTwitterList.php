@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use Abraham\TwitterOAuth\TwitterOAuth;
 use Illuminate\Console\Command;
 
 class UpdateTwitterList extends Command
@@ -38,18 +37,8 @@ class UpdateTwitterList extends Command
      */
     public function handle()
     {
-        // You can get all these via https://dev.twitter.com/
-        $consumer_key = "";
-        $consumer_secret = "";
-        $access_token = "";
-        $access_token_secret = "";
-        $user_id = 0; // Twitter user ID
-        $connection = new TwitterOAuth(
-            $consumer_key,
-            $consumer_secret,
-            $access_token,
-            $access_token_secret
-        );
+        $user_id = config('services.twitter.user');
+        $connection = app('Twitter');
 
         // Get our list
         $lists = $connection->get("lists/list", ["user_id" => $user_id]);
