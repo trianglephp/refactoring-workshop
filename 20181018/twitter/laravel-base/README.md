@@ -12,3 +12,9 @@ cp .env.example .env
 3. Start refactoring in `app/Console/Commands`
 
 4. (optional) send a PR for review!
+
+## Testing
+
+```bash
+./vendor/bin/phpunit
+```
