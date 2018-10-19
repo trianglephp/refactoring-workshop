@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Twitter\ServiceClient;
+use App\Twitter\DataService;
 use Abraham\TwitterOAuth\TwitterOAuth;
 use Illuminate\Console\Command;
 
@@ -22,12 +24,20 @@ class UpdateTwitterList extends Command
     protected $description = 'Updates our Twitter list with new interactions';
 
     /**
+     * Twitter OAuth client
+     *
+     * @var App\Twitter\DataService
+     */
+    private $service;
+
+    /**
      * Create a new command instance.
      *
      * @return void
      */
-    public function __construct()
+    public function __construct(ServiceClient $service = null)
     {
+        $this->service = $service ?? new DataService();
         parent::__construct();
     }
 
@@ -38,84 +48,16 @@ class UpdateTwitterList extends Command
      */
     public function handle()
     {
-        // You can get all these via https://dev.twitter.com/
-        $consumer_key = "";
-        $consumer_secret = "";
-        $access_token = "";
-        $access_token_secret = "";
+        // @todo make this a artisan CLI parameter
         $user_id = 0; // Twitter user ID
-        $connection = new TwitterOAuth(
-            $consumer_key,
-            $consumer_secret,
-            $access_token,
-            $access_token_secret
-        );
 
         // Get our list
-        $lists = $connection->get("lists/list", ["user_id" => $user_id]);
-        $list = $lists[0]; // We only have one list, 'cycle'
-        $new_users = [];
-        $finished = false;
-        $raw_statuses = [];
-        $conditions = [
-            'user_id' => $user_id,
-            'include_rts' => true,
-            'exclude_replies' => false,
-            'count' => 3200
-        ];
-        $cutoff_date = strtotime("1 month ago");
-        $max_id = 0;
-
+        $list = $this->service->getCycleList($user_id);
         echo "Going through the timeline...\n";
-
-        while (!$finished) {
-            $data = $connection->get(
-                "statuses/user_timeline",
-                $conditions
-            );
-
-            // Loop through and grab the oldest ID
-            foreach ($data as $status) {
-                if (strtotime($status->created_at) >= $cutoff_date) {
-                    $raw_statuses[] = $status;
-                    $max_id = $status->id;
-                } else {
-                    break;
-                    $finished = true;
-                }
-            }
-            $tweet_count = count($raw_statuses);
-            echo "{$tweet_count} tweets\n";
-
-            if (isset($conditions['max_id'])) {
-                if ($conditions['max_id'] == $max_id) {
-                    $finished = true;
-                }
-            }
-
-            $conditions['max_id'] = $max_id;
-        }
-
-        // First, eliminate any tweets that are older than a month
-        echo "Grabbing interaction tweets...\n";
-
-        $statuses = array_filter($raw_statuses, function($status) {
-            if ($status->in_reply_to_user_id) {
-                return true;
-            }
-
-            if (isset($status->retweeted_status)) {
-                return true;
-            }
-
-            if (isset($status->quoted_status)) {
-                return true;
-            }
-        });
-
         echo "Building list of new users you interacted with...\n";
 
-        foreach ($statuses as $status) {
+        $new_users = [];
+        foreach ($this->service->getFilteredTimeline($user_id, new \DateTimeImmutable("1 month ago")) as $status) {
             if (isset($status->in_reply_to_user_id, $new_users)) {
                 $new_users[] = $status->in_reply_to_user_id;
             } elseif (isset($status->retweeted_status)) {
@@ -139,7 +81,7 @@ class UpdateTwitterList extends Command
         $favorites = [];
 
         while (!$finished) {
-            $data = $connection->get(
+            $data = $this->client->get(
                 "favorites/list",
                 $conditions
             );
@@ -170,7 +112,7 @@ class UpdateTwitterList extends Command
 
         // Get current users on our list
         echo "Grabbing users currently on our cycle list...\n";
-        $members = $connection->get(
+        $members = $this->client->get(
             "lists/members",
             ['list_id' => $list->id, 'count' => 5000]
         );
@@ -197,12 +139,12 @@ class UpdateTwitterList extends Command
 
             while (!$finished) {
                 $user_slice = array_slice($users_to_remove, $offset, 100);
-                $response = $connection->post(
+                $response = $this->client->post(
                     "lists/members/destroy_all",
                     ['list_id' => $list->id, 'user_id' => implode(",", $user_slice)]
                 );
 
-                if ($connection->getLastHttpCode() !== 200) {
+                if ($this->client->getLastHttpCode() !== 200) {
                     echo "ERROR while trying to remove users from the cycle list\n";
                     print_r($response);
                     exit();
@@ -226,12 +168,12 @@ class UpdateTwitterList extends Command
             $finished = false;
             while (!$finished) {
                 $user_slice = array_slice($users_to_add, $offset, 100);
-                $response = $connection->post(
+                $response = $this->client->post(
                     "lists/members/create_all",
                     ['list_id' => $list->id, 'user_id' => implode(",", $user_slice)]
                 );
 
-                if ($connection->getLastHttpCode() !== 200) {
+                if ($this->client->getLastHttpCode() !== 200) {
                     echo "ERROR while trying to add users to the cycle list\n";
                     print_r($response);
                     exit();
