@@ -20,6 +20,10 @@ class UpdateTwitterList extends Command
      */
     protected $description = 'Updates our Twitter list with new interactions';
 
+    protected $user_id;
+    protected $connection;
+    protected $list_id;
+
     /**
      * Create a new command instance.
      *
@@ -28,6 +32,10 @@ class UpdateTwitterList extends Command
     public function __construct()
     {
         parent::__construct();
+        
+        $this->user_id = config('services.twitter.user');
+        $this->connection = app('Twitter');
+        $this->list_id = config('services.twitter.list');
     }
 
     /**
@@ -37,15 +45,12 @@ class UpdateTwitterList extends Command
      */
     public function handle()
     {
-        $user_id = config('services.twitter.user');
-        $connection = app('Twitter');
-        $list_id = config('services.twitter.list');
-
         $new_users = [];
+
         $finished = false;
         $raw_statuses = [];
         $conditions = [
-            'user_id' => $user_id,
+            'user_id' => $this->user_id,
             'include_rts' => true,
             'exclude_replies' => false,
             'count' => 3200
@@ -56,7 +61,7 @@ class UpdateTwitterList extends Command
         echo "Going through the timeline...\n";
 
         while (!$finished) {
-            $data = $connection->get(
+            $data = $this->connection->get(
                 "statuses/user_timeline",
                 $conditions
             );
@@ -122,11 +127,11 @@ class UpdateTwitterList extends Command
         echo "Grabbing favorites...\n";
         $finished = false;
         $max_id = 0;
-        $conditions = ['user_id' => $user_id, 'count' => 200];
+        $conditions = ['user_id' => $this->user_id, 'count' => 200];
         $favorites = [];
 
         while (!$finished) {
-            $data = $connection->get(
+            $data = $this->connection->get(
                 "favorites/list",
                 $conditions
             );
@@ -157,9 +162,9 @@ class UpdateTwitterList extends Command
 
         // Get current users on our list
         echo "Grabbing users currently on our cycle list...\n";
-        $members = $connection->get(
+        $members = $this->connection->get(
             "lists/members",
-            ['list_id' => $list_id, 'count' => 5000]
+            ['list_id' => $this->list_id, 'count' => 5000]
         );
         $users = $members->users;
         $current_users = [];
@@ -184,12 +189,12 @@ class UpdateTwitterList extends Command
 
             while (!$finished) {
                 $user_slice = array_slice($users_to_remove, $offset, 100);
-                $response = $connection->post(
+                $response = $this->connection->post(
                     "lists/members/destroy_all",
-                    ['list_id' => $list_id, 'user_id' => implode(",", $user_slice)]
+                    ['list_id' => $this->list_id, 'user_id' => implode(",", $user_slice)]
                 );
 
-                if ($connection->getLastHttpCode() !== 200) {
+                if ($this->connection->getLastHttpCode() !== 200) {
                     echo "ERROR while trying to remove users from the cycle list\n";
                     print_r($response);
                     exit();
@@ -213,12 +218,12 @@ class UpdateTwitterList extends Command
             $finished = false;
             while (!$finished) {
                 $user_slice = array_slice($users_to_add, $offset, 100);
-                $response = $connection->post(
+                $response = $this->connection->post(
                     "lists/members/create_all",
-                    ['list_id' => $list_id, 'user_id' => implode(",", $user_slice)]
+                    ['list_id' => $this->list_id, 'user_id' => implode(",", $user_slice)]
                 );
 
-                if ($connection->getLastHttpCode() !== 200) {
+                if ($this->connection->getLastHttpCode() !== 200) {
                     echo "ERROR while trying to add users to the cycle list\n";
                     print_r($response);
                     exit();
