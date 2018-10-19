@@ -23,6 +23,7 @@ class UpdateTwitterList extends Command
     protected $user_id;
     protected $connection;
     protected $list_id;
+    protected $cutoff_date;
 
     /**
      * Create a new command instance.
@@ -36,6 +37,7 @@ class UpdateTwitterList extends Command
         $this->user_id = config('services.twitter.user');
         $this->connection = app('Twitter');
         $this->list_id = config('services.twitter.list');
+        $this->cutoff_date = strtotime("1 month ago");
     }
 
     /**
@@ -47,46 +49,7 @@ class UpdateTwitterList extends Command
     {
         $new_users = [];
 
-        $finished = false;
-        $raw_statuses = [];
-        $conditions = [
-            'user_id' => $this->user_id,
-            'include_rts' => true,
-            'exclude_replies' => false,
-            'count' => 3200
-        ];
-        $cutoff_date = strtotime("1 month ago");
-        $max_id = 0;
-
-        echo "Going through the timeline...\n";
-
-        while (!$finished) {
-            $data = $this->connection->get(
-                "statuses/user_timeline",
-                $conditions
-            );
-
-            // Loop through and grab the oldest ID
-            foreach ($data as $status) {
-                if (strtotime($status->created_at) >= $cutoff_date) {
-                    $raw_statuses[] = $status;
-                    $max_id = $status->id;
-                } else {
-                    break;
-                    $finished = true;
-                }
-            }
-            $tweet_count = count($raw_statuses);
-            echo "{$tweet_count} tweets\n";
-
-            if (isset($conditions['max_id'])) {
-                if ($conditions['max_id'] == $max_id) {
-                    $finished = true;
-                }
-            }
-
-            $conditions['max_id'] = $max_id;
-        }
+        $raw_statuses = $this->getStatusesFromTimeline();
 
         // First, eliminate any tweets that are older than a month
         echo "Grabbing interaction tweets...\n";
@@ -138,7 +101,7 @@ class UpdateTwitterList extends Command
 
             // Loop through and grab the oldest ID
             foreach ($data as $favorite) {
-                if (strtotime($favorite->created_at) >= $cutoff_date) {
+                if (strtotime($favorite->created_at) >= $this->cutoff_date) {
                     $favorites[] = $favorite;
                     $max_id = $favorite->id;
                 } else {
@@ -238,5 +201,51 @@ class UpdateTwitterList extends Command
             }
             echo "Added " . count($users_to_add) . " to the cycle list\n";
         }
+    }
+
+    private function getStatusesFromTimeline()
+    {
+        $this->info('Going through the timeline...');
+
+        $raw_statuses = [];
+        $conditions = [
+            'user_id' => $this->user_id,
+            'include_rts' => true,
+            'exclude_replies' => false,
+            'count' => 3200
+        ];
+        $max_id = 0;
+
+        $finished = false;
+        while (!$finished) {
+            $data = $this->connection->get(
+                "statuses/user_timeline",
+                $conditions
+            );
+
+            // Loop through and grab the oldest ID
+            foreach ($data as $status) {
+                if (strtotime($status->created_at) >= $this->cutoff_date) {
+                    $raw_statuses[] = $status;
+                    $max_id = $status->id;
+                } else {
+                    break;
+                    $finished = true;
+                }
+            }
+
+            $tweet_count = count($raw_statuses);
+            $this->info("{$tweet_count} tweets");
+
+            if (isset($conditions['max_id'])) {
+                if ($conditions['max_id'] == $max_id) {
+                    $finished = true;
+                }
+            }
+
+            $conditions['max_id'] = $max_id;
+        }
+
+        return $raw_statuses;
     }
 }
